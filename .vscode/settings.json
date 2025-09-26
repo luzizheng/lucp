@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "functional": "c",
+        "stdint.h": "c",
+        "stdlib.h": "c",
+        "lucpd_utils.h": "c",
+        "pthread.h": "c",
+        "lucp.h": "c",
+        "inet.h": "c"
+    }
+}

@@ -11,7 +11,7 @@ add_subdirectory(third_party/lucfg)
 add_subdirectory(lucplib)
 
 # lucp服务器守护进程
-#add_subdirectory(lucpd)
+add_subdirectory(lucpd)
 
 # 测试程序
 add_subdirectory(demo)

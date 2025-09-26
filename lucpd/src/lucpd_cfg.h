@@ -51,13 +51,15 @@ typedef struct {
         char tmp_dir[256];     // 临时文件目录，默认"/var/lucp/tmp"
         int file_retention_min;// 文件保留时间(分钟)，默认30
     } file;
-} LucpdConfig;
+} LucpdConfig_t;
 
 
-// 加载配置文件，返回默认配置(失败时)或解析后的配置
-LucpdConfig* load_config(const char* config_file);
+// 从配置文件加载配置文件
+int lucpd_cfg_load_with_file(LucpdConfig_t * cfg, const char* config_file);
 
-// 释放配置结构体
-void free_config(LucpdConfig* config);
+// 直接从函数入口参数加载配置
+int lucpd_cfg_load_with_entryArgs(LucpdConfig_t * cfg, int argc, char *argv[]);
+
+
 
 #endif // CONFIG_H

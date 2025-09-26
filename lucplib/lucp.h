@@ -15,6 +15,33 @@ extern "C"
 #define LUCP_VER_MINOR 0
 #define LUCP_MAX_TEXTINFO_LEN 1010 // 业务范围 : payload 0~1010
 
+/**
+ * LUCP 报文类型定义
+ */
+#define LUCP_MTYP_DEFAULT             0x00
+#define LUCP_MTYP_UPLOAD_REQUEST      0x01
+#define LUCP_MTYP_ACK_START           0x02
+#define LUCP_MTYP_NOTIFY_DONE         0x03
+#define LUCP_MTYP_FTP_LOGIN_RESULT    0x04
+#define LUCP_MTYP_FTP_DOWNLOAD_RESULT 0x05
+#define LUCP_MTYP_CLOUD_UPLOAD_RESULT 0x06
+
+/**
+ * LUCP 状态码定义
+ */
+#define LUCP_STAT_FAILED                0x00
+#define LUCP_STAT_SUCCESS               0x01
+#define LUCP_STAT_ARCHIVE_FAILED        0x10
+#define LUCP_STAT_FTP_UPLOAD_FAILED     0x11
+#define LUCP_STAT_FTP_LOGIN_FAILED      0x20
+#define LUCP_STAT_FTP_DOWNLOAD_FAILED   0x21
+#define LUCP_STAT_CLOUD_UPLOAD_FAILED   0x30
+#define LUCP_STAT_INVALID_REQUEST       0xF0
+#define LUCP_STAT_TOO_MANY_CONNECTIONS  0xF1
+#define LUCP_STAT_RATE_LIMITED          0xF2
+#define LUCP_STAT_INTERNAL_ERROR        0xFF
+
+
     /**
      * LUCP 数据帧结构
      */
