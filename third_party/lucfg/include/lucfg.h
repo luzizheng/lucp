@@ -80,8 +80,8 @@
 #ifndef LUCFG_H_
 #define LUCFG_H_
 
-#include <stdio.h>   /* FILE */
 #include <stdint.h>
+#include <stdio.h> /* FILE */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -94,27 +94,34 @@ typedef struct lucfg_handle lucfg_handle_t;
 /* ------------------------------------------------------------------ */
 /* Error codes returned by all get-functions.                         */
 /* ------------------------------------------------------------------ */
-#define LUCFG_OK          0   /* Success                                      */
-#define LUCFG_ERR_OPEN   -1   /* Cannot open configuration file               */
-#define LUCFG_ERR_PARSE  -2   /* Syntax error while parsing                   */
-#define LUCFG_ERR_NOKEY  -3   /* Requested section/key pair not found         */
-#define LUCFG_ERR_TYPE   -4   /* Value exists but requested type is incorrect */
-#define LUCFG_ERR_LOCK   -5   /* Internal mutex lock failure (very rare)      */
-#define LUCFG_ERR_RANGE  -6   /* 值超出目标类型范围 */
+#define LUCFG_OK        0  /* Success                                      */
+#define LUCFG_ERR_OPEN  -1 /* Cannot open configuration file               */
+#define LUCFG_ERR_PARSE -2 /* Syntax error while parsing                   */
+#define LUCFG_ERR_NOKEY -3 /* Requested section/key pair not found         */
+#define LUCFG_ERR_TYPE  -4 /* Value exists but requested type is incorrect */
+#define LUCFG_ERR_LOCK  -5 /* Internal mutex lock failure (very rare)      */
+#define LUCFG_ERR_RANGE -6 /* 值超出目标类型范围 */
 
-static inline const char *lucfg_errname(int rc)
+static inline const char* lucfg_errname(int rc)
 {
-    switch (rc) {
-    case LUCFG_OK:        return "OK";
-    case LUCFG_ERR_OPEN:  return "OPEN ERR";
-    case LUCFG_ERR_PARSE: return "PARSE ERR";
-    case LUCFG_ERR_NOKEY: return "NO KEY";
-    case LUCFG_ERR_TYPE:  return "Err TYPE";
-    case LUCFG_ERR_RANGE: return "RANGE ERR";
-    default:             return "UNKNOWN ERR";
+    switch (rc)
+    {
+    case LUCFG_OK:
+        return "OK";
+    case LUCFG_ERR_OPEN:
+        return "OPEN ERR";
+    case LUCFG_ERR_PARSE:
+        return "PARSE ERR";
+    case LUCFG_ERR_NOKEY:
+        return "NO KEY";
+    case LUCFG_ERR_TYPE:
+        return "Err TYPE";
+    case LUCFG_ERR_RANGE:
+        return "RANGE ERR";
+    default:
+        return "UNKNOWN ERR";
     }
 }
-
 
 /* ================================================================== */
 /* LIFE-CYCLE FUNCTIONS                                               */
@@ -131,7 +138,7 @@ static inline const char *lucfg_errname(int rc)
  *
  * Thread-safe: yes (mutex held only during parsing).
  */
-lucfg_handle_t *lucfg_open(const char *filename);
+lucfg_handle_t* lucfg_open(const char* filename);
 
 /**
  * lucfg_close()
@@ -143,7 +150,7 @@ lucfg_handle_t *lucfg_open(const char *filename);
  *
  * Thread-safe: yes (mutex held during destruction).
  */
-void lucfg_close(lucfg_handle_t *h);
+void lucfg_close(lucfg_handle_t* h);
 
 /* ================================================================== */
 /* VALUE RETRIEVAL FUNCTIONS                                          */
@@ -162,10 +169,10 @@ void lucfg_close(lucfg_handle_t *h);
  *
  * Thread-safe: yes.
  */
-int lucfg_get_string(lucfg_handle_t *h,
-                    const char *section,
-                    const char *key,
-                    const char **out_value);
+int lucfg_get_string(lucfg_handle_t* h,
+                     const char* section,
+                     const char* key,
+                     const char** out_value);
 
 /**
  * lucfg_get_int()
@@ -182,10 +189,7 @@ int lucfg_get_string(lucfg_handle_t *h,
  *
  * Thread-safe: yes.
  */
-int lucfg_get_int(lucfg_handle_t *h,
-                 const char *section,
-                 const char *key,
-                 long *out_value);
+int lucfg_get_int(lucfg_handle_t* h, const char* section, const char* key, long* out_value);
 
 /**
  * lucfg_get_double()
@@ -202,26 +206,25 @@ int lucfg_get_int(lucfg_handle_t *h,
  *
  * Thread-safe: yes.
  */
-int lucfg_get_double(lucfg_handle_t *h,
-                    const char *section,
-                    const char *key,
-                    double *out_value);
-
+int lucfg_get_double(lucfg_handle_t* h, const char* section, const char* key, double* out_value);
 
 /* ---------------- 窄类型安全接口 ---------------- */
-int lucfg_get_bool    (lucfg_handle_t *h, const char *sec, const char *key, int *out);      /* C99 bool  0/1 */
+int lucfg_get_bool(lucfg_handle_t* h,
+                   const char* sec,
+                   const char* key,
+                   int* out); /* C99 bool  0/1 */
 
-int lucfg_get_int8    (lucfg_handle_t *h, const char *sec, const char *key, int8_t  *out);
-int lucfg_get_uint8   (lucfg_handle_t *h, const char *sec, const char *key, uint8_t *out);
+int lucfg_get_int8(lucfg_handle_t* h, const char* sec, const char* key, int8_t* out);
+int lucfg_get_uint8(lucfg_handle_t* h, const char* sec, const char* key, uint8_t* out);
 
-int lucfg_get_int16   (lucfg_handle_t *h, const char *sec, const char *key, int16_t *out);
-int lucfg_get_uint16  (lucfg_handle_t *h, const char *sec, const char *key, uint16_t *out);
+int lucfg_get_int16(lucfg_handle_t* h, const char* sec, const char* key, int16_t* out);
+int lucfg_get_uint16(lucfg_handle_t* h, const char* sec, const char* key, uint16_t* out);
 
-int lucfg_get_int32   (lucfg_handle_t *h, const char *sec, const char *key, int32_t *out);
-int lucfg_get_uint32  (lucfg_handle_t *h, const char *sec, const char *key, uint32_t *out);
+int lucfg_get_int32(lucfg_handle_t* h, const char* sec, const char* key, int32_t* out);
+int lucfg_get_uint32(lucfg_handle_t* h, const char* sec, const char* key, uint32_t* out);
 
-int lucfg_get_int64   (lucfg_handle_t *h, const char *sec, const char *key, int64_t *out);
-int lucfg_get_uint64  (lucfg_handle_t *h, const char *sec, const char *key, uint64_t *out);
+int lucfg_get_int64(lucfg_handle_t* h, const char* sec, const char* key, int64_t* out);
+int lucfg_get_uint64(lucfg_handle_t* h, const char* sec, const char* key, uint64_t* out);
 
 /* ================================================================== */
 /* DEBUG / UTILITY FUNCTIONS                                          */
@@ -238,7 +241,7 @@ int lucfg_get_uint64  (lucfg_handle_t *h, const char *sec, const char *key, uint
  *
  * Thread-safe: yes (mutex held during iteration).
  */
-void lucfg_dump(lucfg_handle_t *h, FILE *fp);
+void lucfg_dump(lucfg_handle_t* h, FILE* fp);
 
 #ifdef __cplusplus
 }

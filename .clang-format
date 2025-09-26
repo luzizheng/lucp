@@ -1,9 +1,50 @@
-NamespaceIndentation: None  # 命名空间内的代码不缩进
-# 允许函数声明的参数换行
-AllowAllParametersOfDeclarationOnNextLine: true
+# 基于LLVM风格扩展，兼顾可读性和规范性
+BasedOnStyle: LLVM
 
-# 禁止参数"打包"在同一行（强制换行）
-BinPackParameters: false
+# 基本缩进设置
+IndentWidth: 4               # 缩进宽度为4个空格
+TabWidth: 4                  # Tab宽度为4个空格
+UseTab: Never                # 不使用Tab，始终用空格缩进
 
-# 括号后的参数对齐方式（可选）
-AlignAfterOpenBracket: Align
+# 解决extern "C"不缩进问题
+NamespaceIndentation: None   # 命名空间内代码不缩进
+IndentExternBlock: false     # extern "C"块内代码不缩进
+
+# 函数声明/定义参数换行配置
+AllowAllParametersOfDeclarationOnNextLine: true  # 允许函数声明参数换行
+BinPackParameters: false     # 禁止参数打包，强制换行
+BinPackArguments: false      # 函数调用参数也换行（保持一致性）
+
+# 括号与换行风格
+BreakBeforeBraces: Custom    # 自定义括号位置
+BraceWrapping:
+  AfterClass: true           # 类定义后换行
+  AfterControlStatement: true # 控制语句后换行
+  AfterEnum: true            # 枚举后换行
+  AfterFunction: true        # 函数定义后换行
+  AfterNamespace: true       # 命名空间后换行
+  AfterStruct: true          # 结构体后换行
+  BeforeElse: true           # else前换行
+  IndentBraces: false        # 括号本身不缩进
+
+# 对齐设置
+AlignAfterOpenBracket: Align # 括号后的内容对齐
+AlignConsecutiveMacros: true # 连续宏定义对齐
+AlignConsecutiveAssignments: true # 连续赋值对齐
+
+# 行宽与换行控制
+ColumnLimit: 100             # 最大行宽限制为100字符
+BreakStringLiterals: true    # 长字符串自动换行
+AllowShortIfStatementsOnASingleLine: false # 禁止短if单行
+
+# 空格设置
+SpaceAfterCStyleCast: true   # C风格转换后加空格
+SpacesInParentheses: false   # 括号内不加空格
+SpacesInSquareBrackets: false # 方括号内不加空格
+SpaceBeforeAssignmentOperators: true # 赋值运算符前加空格
+
+# 其他格式优化
+PointerAlignment: Left       # 指针符号靠左（如 char* ptr）
+SortIncludes: true           # 自动排序#include
+IncludeBlocks: Merge         # 合并同类型#include
+MaxEmptyLinesToKeep: 1       # 最多保留1个空行
