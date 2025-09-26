@@ -1,0 +1,9 @@
+NamespaceIndentation: None  # 命名空间内的代码不缩进
+# 允许函数声明的参数换行
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# 禁止参数"打包"在同一行（强制换行）
+BinPackParameters: false
+
+# 括号后的参数对齐方式（可选）
+AlignAfterOpenBracket: Align

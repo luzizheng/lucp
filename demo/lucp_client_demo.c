@@ -9,7 +9,7 @@
 #include <sys/select.h>
 
 #define DEMO_SERVER_IP   "127.0.0.1"
-#define DEMO_SERVER_PORT 23456
+#define DEMO_SERVER_PORT 32100
 
 // Simulate FTP login: 80% success, 20% fail
 int simulate_ftp_login(char *reason, size_t sz) {
