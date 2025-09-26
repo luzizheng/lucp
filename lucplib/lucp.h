@@ -7,76 +7,78 @@ extern "C" {
 #endif
 
 /**
- * LUCP Protocol Constants
+ * LUCP 协议常量
  */
 #define LUCP_MAGIC 0x4C554350 // ASCII 'LUCP'
 #define LUCP_VER_MAJOR 1
 #define LUCP_VER_MINOR 0
-#define LUCP_MAX_PAYLOAD 1010  // Business logic: payload 0~1010
+#define LUCP_MAX_TEXTINFO_LEN 1010  // 业务范围 : payload 0~1010
 
 /**
- * LUCP Frame Structure
+ * LUCP 数据帧结构
  */
 typedef struct {
-    uint32_t magic;             // Must be LUCP_MAGIC ('LUCP')
-    uint8_t  version_major;     // Protocol major version
-    uint8_t  version_minor;     // Protocol minor version
-    uint32_t seq_num;           // Sequence number (for retransmission, etc.)
-    uint8_t  cmd;               // Command type
-    uint8_t  status;            // Status/result code
-    uint16_t payload_len;       // Payload length (0~1010)
-    uint8_t  payload[LUCP_MAX_PAYLOAD]; // Payload data (may be raw or text, not null-terminated)
+    uint32_t magic;             // 固定值 LUCP_MAGIC ('LUCP')
+    uint8_t  version_major;     // Protocol 主版本
+    uint8_t  version_minor;     // Protocol 次版本
+    uint32_t seq_num;           // 序列号 
+    uint8_t  msgType;               // 报文类型(指令类型)
+    uint8_t  status;            // 状态码(返回码)
+    uint16_t textInfo_len;       // textInfo 的长度 (0~1010)
+    uint8_t  textInfo[LUCP_MAX_TEXTINFO_LEN]; // 文本信息（不带尾符）
 } lucp_frame_t;
 
 /**
- * Packs a LUCP frame into a byte buffer.
- * Returns total bytes written on success, -1 on error.
+ * 将LUCP帧封装到字节缓冲区中。
+ * 成功时返回总写入字节数，出错时返回-1。
  */
 int lucp_frame_pack(const lucp_frame_t* frame, uint8_t* buf, size_t buflen);
 
 /**
- * Unpacks a LUCP frame from a byte buffer.
- * Returns bytes consumed on success, 0 if incomplete, -1 on error.
+ * 从字节缓冲区中解包LUCP帧。
+ * 成功时返回消耗的字节数，不完整时返回0，出错时返回-1。
  */
 int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen);
 
 /**
- * Initializes a LUCP frame with specified fields and payload.
+ * 初始化一个LUCP帧，包含指定的字段和文本信息。
  */
 void lucp_frame_make(lucp_frame_t* frame, uint32_t seq, uint8_t cmd, uint8_t status,
-                     const void* payload, uint16_t payload_len);
+                     const char* textInfo, uint16_t textStrlen);
 
 
+
+/* 以下接口涉及网络层辅助方法，仅支持Linux平台 */                     
 #ifndef _WIN32 
 /**
- * LUCP Network Context (for reassembly and socket state)
+ * LUCP 网络上下文（用于重组和套接字状态）
  */
 typedef struct {
-    int fd;                 // Socket file descriptor
-    uint8_t rbuf[2048];     // Receive buffer for partial reads
-    size_t rbuf_len;        // Number of bytes currently in rbuf
+    int fd;                 // Socket fd
+    uint8_t rbuf[2048];     // 部分读取的接收缓冲区
+    size_t rbuf_len;        // 当前在缓冲区中的字节数
 } lucp_net_ctx_t;
 
 /**
- * Initializes a LUCP network context with a connected socket fd.
+ * 使用已连接的Socket fd初始化LUCP网络上下文。
  */
 void lucp_net_ctx_init(lucp_net_ctx_t* ctx, int fd);
 
 /**
- * Sends a LUCP frame over the network.
- * Returns 0 on success, -1 on error.
+ * 通过网络发送一个LUCP帧。
+ * 成功时返回0，出错时返回-1。
  */
 int lucp_net_send(lucp_net_ctx_t* ctx, const lucp_frame_t* frame);
 
 /**
- * Receives a complete LUCP frame (handles TCP sticking/fragmentation).
- * Returns 0 on success, -1 on error.
+ * 接收完整的LUCP帧（处理TCP粘包/分片）。
+ * 成功返回0，错误返回-1。
  */
 int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame);
 
 /**
- * Sends a LUCP frame and waits for expected reply with retries.
- * Returns 0 on success, -1 on error.
+ * 发送一个LUCP帧，并等待预期回复，期间会进行重试。
+ * 成功时返回0，出错时返回-1。
  */
 int lucp_net_send_with_retries(
     lucp_net_ctx_t* ctx,

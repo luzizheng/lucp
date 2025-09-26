@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include "lucp.h"
+#include <sys/select.h>
 
 #define DEMO_SERVER_IP   "127.0.0.1"
 #define DEMO_SERVER_PORT 23456
@@ -63,7 +64,7 @@ int main() {
     tv.tv_sec = 2; tv.tv_usec = 0;
     int rv = select(sockfd+1, &rfds, NULL, NULL, &tv);
     if (rv > 0 && FD_ISSET(sockfd, &rfds)) {
-        if (lucp_net_recv(&netctx, &reply) == 0 && reply.cmd == 0x02) {
+        if (lucp_net_recv(&netctx, &reply) == 0 && reply.msgType == 0x02) {
             printf("[Client] Got 0x02 ACK (seq=%u)\n", reply.seq_num);
         } else {
             printf("[Client] Did not receive proper 0x02 ACK\n");
@@ -79,11 +80,11 @@ int main() {
     tv.tv_sec = 5; tv.tv_usec = 0;
     rv = select(sockfd+1, &rfds, NULL, NULL, &tv);
     if (rv > 0 && FD_ISSET(sockfd, &rfds)) {
-        if (lucp_net_recv(&netctx, &reply) == 0 && reply.cmd == 0x03) {
+        if (lucp_net_recv(&netctx, &reply) == 0 && reply.msgType == 0x03) {
             printf("[Client] Got 0x03 (status=0x%x, payload=\"%.*s\")\n",
-                reply.status, reply.payload_len, (char*)reply.payload);
+                reply.status, reply.textInfo_len, reply.textInfo);
             if (reply.status != 1) {
-                printf("[Client] Log preparation failed, reason: %.*s\n", reply.payload_len, (char*)reply.payload);
+                printf("[Client] Log preparation failed, reason: %.*s\n", reply.textInfo_len, reply.textInfo);
                 close(sockfd); return 1;
             }
         } else {

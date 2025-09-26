@@ -61,7 +61,7 @@ int main() {
     lucp_frame_t frame, reply;
 
     // 1. Wait for 0x01 request
-    if (lucp_net_recv(&netctx, &frame) == 0 && frame.cmd == 0x01) {
+    if (lucp_net_recv(&netctx, &frame) == 0 && frame.msgType == 0x01) {
         printf("[Server] Received 0x01 request (seq=%u)\n", frame.seq_num);
         // 2. Immediately respond with 0x02 ACK
         lucp_frame_make(&reply, frame.seq_num, 0x02, 1, NULL, 0);
@@ -79,10 +79,10 @@ int main() {
         printf("[Server] Sent 0x03 (status=0x%x, payload=\"%s\")\n", prep_status, prep_payload);
 
         // 5. Wait for 0x04 (FTP login confirm)
-        if (lucp_net_recv(&netctx, &frame) == 0 && frame.cmd == 0x04) {
+        if (lucp_net_recv(&netctx, &frame) == 0 && frame.msgType == 0x04) {
             printf("[Server] Received 0x04 (FTP login result, status=0x%x)\n", frame.status);
             // 6. Wait for 0x05 (download confirm)
-            if (lucp_net_recv(&netctx, &frame) == 0 && frame.cmd == 0x05) {
+            if (lucp_net_recv(&netctx, &frame) == 0 && frame.msgType == 0x05) {
                 printf("[Server] Received 0x05 (download result, status=0x%x)\n", frame.status);
             }
         }

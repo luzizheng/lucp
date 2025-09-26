@@ -53,35 +53,35 @@ int lucp_frame_pack(const lucp_frame_t* frame, uint8_t* buf, size_t buflen) {
     }
 
     // Header = 14 bytes
-    if (buflen < (size_t)(14 + frame->payload_len)) {
-        fprintf(stderr, "[LUCP] lucp_frame_pack: Output buffer too small (%d required)\n", 14 + frame->payload_len);
+    if (buflen < (size_t)(14 + frame->textInfo_len)) {
+        fprintf(stderr, "[LUCP] lucp_frame_pack: Output buffer too small (%d required)\n", 14 + frame->textInfo_len);
         return -1;
     }
-    if (frame->payload_len > LUCP_MAX_PAYLOAD) {
-        fprintf(stderr, "[LUCP] lucp_frame_pack: Payload length %u exceeds max %d\n", frame->payload_len, LUCP_MAX_PAYLOAD);
+    if (frame->textInfo_len > LUCP_MAX_TEXTINFO_LEN) {
+        fprintf(stderr, "[LUCP] lucp_frame_pack: textInfo length %u exceeds max %d\n", frame->textInfo_len, LUCP_MAX_TEXTINFO_LEN);
         return -1;
     }
 
     size_t offset = 0;
     uint32_t magic = htonl_c(frame->magic);
     uint32_t seq = htonl_c(frame->seq_num);
-    uint16_t plen = htons_c(frame->payload_len);
+    uint16_t plen = htons_c(frame->textInfo_len);
 
     memcpy(buf + offset, &magic, 4);      offset += 4;
     buf[offset++] = frame->version_major;
     buf[offset++] = frame->version_minor;
     memcpy(buf + offset, &seq, 4);        offset += 4;
-    buf[offset++] = frame->cmd;
+    buf[offset++] = frame->msgType;
     buf[offset++] = frame->status;
     memcpy(buf + offset, &plen, 2);       offset += 2;
 
-    if (frame->payload_len > 0) {
-        memcpy(buf + offset, frame->payload, frame->payload_len);
-        offset += frame->payload_len;
+    if (frame->textInfo_len > 0) {
+        memcpy(buf + offset, frame->textInfo, frame->textInfo_len);
+        offset += frame->textInfo_len;
     }
 
-    fprintf(stderr, "[LUCP] Frame packed (cmd=%u, seq=%u, status=%u, payload_len=%u)\n",
-            frame->cmd, frame->seq_num, frame->status, frame->payload_len);
+    fprintf(stderr, "[LUCP] Frame packed (msgType=%u, seq=%u, status=%u, textInfo_len=%u)\n",
+            frame->msgType, frame->seq_num, frame->status, frame->textInfo_len);
 
     return offset;
 }
@@ -115,56 +115,56 @@ int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen) {
     memcpy(&seq, buf+6, 4);
     frame->seq_num = ntohl_c(seq);
 
-    frame->cmd = buf[10];
+    frame->msgType = buf[10];
     frame->status = buf[11];
 
     uint16_t plen;
     memcpy(&plen, buf+12, 2);
-    frame->payload_len = ntohs_c(plen);
+    frame->textInfo_len = ntohs_c(plen);
 
-    if (frame->payload_len > LUCP_MAX_PAYLOAD) {
-        fprintf(stderr, "[LUCP] lucp_frame_unpack: Payload length %u exceeds max %d\n", frame->payload_len, LUCP_MAX_PAYLOAD);
+    if (frame->textInfo_len > LUCP_MAX_TEXTINFO_LEN) {
+        fprintf(stderr, "[LUCP] lucp_frame_unpack: textInfo length %u exceeds max %d\n", frame->textInfo_len, LUCP_MAX_TEXTINFO_LEN);
         return -1;
     }
-    if (buflen < (size_t)(14 + frame->payload_len)) {
+    if (buflen < (size_t)(14 + frame->textInfo_len)) {
         // Wait for more data
         return 0;
     }
 
-    if (frame->payload_len > 0)
-        memcpy(frame->payload, buf + 14, frame->payload_len);
+    if (frame->textInfo_len > 0)
+        memcpy(frame->textInfo, buf + 14, frame->textInfo_len);
 
-    fprintf(stderr, "[LUCP] Frame unpacked (cmd=%u, seq=%u, status=%u, payload_len=%u)\n",
-            frame->cmd, frame->seq_num, frame->status, frame->payload_len);
+    fprintf(stderr, "[LUCP] Frame unpacked (msgType=%u, seq=%u, status=%u, textInfo_len=%u)\n",
+            frame->msgType, frame->seq_num, frame->status, frame->textInfo_len);
 
-    return 14 + frame->payload_len;
+    return 14 + frame->textInfo_len;
 }
 
 /**
- * Initializes a lucp_frame_t with the provided fields and payload.
+ * Initializes a lucp_frame_t with the provided fields and textInfo.
  */
-void lucp_frame_make(lucp_frame_t* frame, uint32_t seq, uint8_t cmd, uint8_t status,
-                     const void* payload, uint16_t payload_len) {
+void lucp_frame_make(lucp_frame_t* frame, uint32_t seq, uint8_t msgType, uint8_t status,
+                     const char* textInfo, uint16_t textInfo_len) {
     if (!frame) {
         fprintf(stderr, "[LUCP] lucp_frame_make: NULL frame\n");
         return;
     }
-    if (payload_len > LUCP_MAX_PAYLOAD) {
-        fprintf(stderr, "[LUCP] lucp_frame_make: payload_len %u exceeds max %d. Truncating.\n", payload_len, LUCP_MAX_PAYLOAD);
-        payload_len = LUCP_MAX_PAYLOAD;
+    if (textInfo_len > LUCP_MAX_TEXTINFO_LEN) {
+        fprintf(stderr, "[LUCP] lucp_frame_make: textInfo_len %u exceeds max %d. Truncating.\n", textInfo_len, LUCP_MAX_TEXTINFO_LEN);
+        textInfo_len = LUCP_MAX_TEXTINFO_LEN;
     }
     frame->magic = LUCP_MAGIC;
     frame->version_major = LUCP_VER_MAJOR;
     frame->version_minor = LUCP_VER_MINOR;
     frame->seq_num = seq;
-    frame->cmd = cmd;
+    frame->msgType = msgType;
     frame->status = status;
-    frame->payload_len = payload_len;
-    if (payload && payload_len > 0)
-        memcpy(frame->payload, payload, payload_len);
+    frame->textInfo_len = textInfo_len;
+    if (textInfo && textInfo_len > 0)
+        memcpy(frame->textInfo, textInfo, textInfo_len);
 
-    fprintf(stderr, "[LUCP] Frame made (cmd=%u, seq=%u, status=%u, payload_len=%u)\n",
-            cmd, seq, status, payload_len);
+    fprintf(stderr, "[LUCP] Frame made (msgType=%u, seq=%u, status=%u, textInfo_len=%u)\n",
+            msgType, seq, status, textInfo_len);
 }
 
 
@@ -216,7 +216,7 @@ int lucp_net_send(lucp_net_ctx_t* ctx, const lucp_frame_t* frame) {
         fprintf(stderr, "[LUCP] lucp_net_send: NULL input\n");
         return -1;
     }
-    uint8_t buf[14 + LUCP_MAX_PAYLOAD];
+    uint8_t buf[14 + LUCP_MAX_TEXTINFO_LEN];
     int len = lucp_frame_pack(frame, buf, sizeof(buf));
     if (len < 0) {
         fprintf(stderr, "[LUCP] lucp_net_send: Frame pack failed\n");
@@ -226,7 +226,7 @@ int lucp_net_send(lucp_net_ctx_t* ctx, const lucp_frame_t* frame) {
         fprintf(stderr, "[LUCP] lucp_net_send: Socket write failed\n");
         return -1;
     }
-    fprintf(stderr, "[LUCP] Frame sent (cmd=%u, seq=%u)\n", frame->cmd, frame->seq_num);
+    fprintf(stderr, "[LUCP] Frame sent (msgType=%u, seq=%u)\n", frame->msgType, frame->seq_num);
     return 0;
 }
 
@@ -247,7 +247,7 @@ int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame) {
         if (remain > 0)
             memmove(ctx->rbuf, ctx->rbuf + parsed, remain);
         ctx->rbuf_len = remain;
-        fprintf(stderr, "[LUCP] Frame received from buffer (cmd=%u, seq=%u)\n", frame->cmd, frame->seq_num);
+        fprintf(stderr, "[LUCP] Frame received from buffer (msgType=%u, seq=%u)\n", frame->msgType, frame->seq_num);
         return 0;
     } else if (parsed < 0) {
         // Corrupted frame in buffer, discard
@@ -281,7 +281,7 @@ int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame) {
             if (remain > 0)
                 memmove(ctx->rbuf, ctx->rbuf + parsed, remain);
             ctx->rbuf_len = remain;
-            fprintf(stderr, "[LUCP] Frame received from network (cmd=%u, seq=%u)\n", frame->cmd, frame->seq_num);
+            fprintf(stderr, "[LUCP] Frame received from network (msgType=%u, seq=%u)\n", frame->msgType, frame->seq_num);
             return 0;
         } else if (parsed < 0) {
             fprintf(stderr, "[LUCP] lucp_net_recv: Corrupted frame, buffer cleared\n");
@@ -333,12 +333,12 @@ int lucp_net_send_with_retries(
         }
         if (FD_ISSET(ctx->fd, &rfds)) {
             if (lucp_net_recv(ctx, reply) == 0 &&
-                reply->cmd == expect_cmd &&
+                reply->msgType == expect_cmd &&
                 reply->seq_num == frame->seq_num) {
-                fprintf(stderr, "[LUCP] lucp_net_send_with_retries: Received expected reply (cmd=%u, seq=%u)\n", reply->cmd, reply->seq_num);
+                fprintf(stderr, "[LUCP] lucp_net_send_with_retries: Received expected reply (msgType=%u, seq=%u)\n", reply->msgType, reply->seq_num);
                 return 0;
             } else {
-                fprintf(stderr, "[LUCP] lucp_net_send_with_retries: Unexpected reply or seq/cmd mismatch\n");
+                fprintf(stderr, "[LUCP] lucp_net_send_with_retries: Unexpected reply or seq/msgType mismatch\n");
             }
         }
         // else retry
