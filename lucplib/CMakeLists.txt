@@ -58,7 +58,7 @@ install(FILES ${LUCP_HEADERS}
     PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
 )
 
-# 可选：生成pkg-config文件，方便其他项目使用
+# 可选: 生成pkg-config文件, 方便其他项目使用
 configure_file(lucp.pc.in lucp.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lucp.pc
     DESTINATION lib/pkgconfig
