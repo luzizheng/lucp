@@ -22,6 +22,6 @@ bool check_rate_limit(const char* client_ip, time_t* last_access);
 
 uint64_t get_now_ms(void);
 
-void handle_lucp_log(LucpLogLevel level, const char *file, int line, const char *format, ...);
+void handle_lucp_log(LucpLogLevel level, const char *file, int line, const char *logmsg);
 
 #endif // UTILS_H

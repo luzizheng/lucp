@@ -45,6 +45,9 @@ atomic_bool server_running = true;
 // 监听Socket
 int listen_fd              = -1;
 
+// 客户端计数，线程安全
+atomic_int client_count = 0;
+
 // 信号处理函数
 void handle_sig(int sig)
 {
@@ -150,7 +153,7 @@ static void* session_thread(void* arg)
                             payload,
                             strlen(payload));
             lucp_net_send(&netctx, &reply);
-            log_debug("[Session %d] Sent LUCP_MTYP_NOTIFY_DONE(0x%x) (status=0x%x).",
+            log_debug("[Session %d] Sent LUCP_MTYP_NOTIFY_DONE(0x%02X) (status=0x%02X).",
                       sess->fd,
                       LUCP_MTYP_NOTIFY_DONE,
                       prep_status);
@@ -169,8 +172,8 @@ static void* session_thread(void* arg)
             int ret = lucp_net_recv(&netctx, &frame);
             if (ret == 0 && frame.msgType == LUCP_MTYP_FTP_LOGIN_RESULT)
             {
-                log_debug("[Session %d] Got LUCP_MTYP_FTP_LOGIN_RESULT(0x%x) (FTP login result, "
-                          "status=0x%x).",
+                log_debug("[Session %d] Got LUCP_MTYP_FTP_LOGIN_RESULT(0x%02X) (FTP login result, "
+                          "status=0x%02X).",
                           sess->fd,
                           LUCP_MTYP_FTP_LOGIN_RESULT,
                           frame.status);
@@ -194,8 +197,8 @@ static void* session_thread(void* arg)
             int ret = lucp_net_recv(&netctx, &frame);
             if (ret == 0 && frame.msgType == LUCP_MTYP_FTP_DOWNLOAD_RESULT)
             {
-                log_debug("[Session %d] Got LUCP_MTYP_FTP_DOWNLOAD_RESULT(0x%x) (Download result, "
-                          "status=0x%x).",
+                log_debug("[Session %d] Got LUCP_MTYP_FTP_DOWNLOAD_RESULT(0x%02X) (Download result, "
+                          "status=0x%02X).",
                           sess->fd,
                           LUCP_MTYP_FTP_DOWNLOAD_RESULT,
                           frame.status);
@@ -231,6 +234,8 @@ static void* session_thread(void* arg)
     log_debug("[Session %d] Thread exit", sess->fd);
     close(sess->fd);
     free(sess);
+    // 客户端断开时递减 client_count
+    atomic_fetch_sub(&client_count, 1);
     return NULL;
 }
 
@@ -240,7 +245,7 @@ int main(int argc, char** argv)
     signal(SIGINT, handle_sig);
     signal(SIGTERM, handle_sig);
 
-    // 注册日志回调
+    // 注册lucp库的日志回调
     lucp_set_log_callback(handle_lucp_log);
 
     // 加载配置
@@ -288,8 +293,6 @@ int main(int argc, char** argv)
            g_lucpdcfg.network.port,
            g_lucpdcfg.network.max_clients);
 
-    int client_count = 0;
-
     // 主循环，接受连接
     while (server_running)
     {
@@ -297,7 +300,7 @@ int main(int argc, char** argv)
         socklen_t cli_len = sizeof(cli_addr);
 
         // 接受新连接
-        int client_fd     = accept(listen_fd, (struct sockaddr*) &cli_addr, &cli_len);
+        int client_fd = accept(listen_fd, (struct sockaddr*) &cli_addr, &cli_len);
         if (client_fd < 0)
         {
             if (errno == EINTR)
@@ -307,7 +310,7 @@ int main(int argc, char** argv)
         }
 
         // 检查最大连接数
-        if (client_count >= g_lucpdcfg.network.max_clients)
+        if (atomic_load(&client_count) >= g_lucpdcfg.network.max_clients)
         {
             printf("[Server] Max clients reached, rejecting connection\n");
             close(client_fd);
@@ -322,7 +325,7 @@ int main(int argc, char** argv)
         pthread_t tid;
         pthread_create(&tid, NULL, session_thread, sess);
         pthread_detach(tid);
-        client_count++;
+        atomic_fetch_add(&client_count, 1);
     }
     close(listen_fd);
     printf("[Server] Exiting main loop\n");

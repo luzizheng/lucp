@@ -5,35 +5,23 @@
 #include <errno.h>
 
 // ================================ LOGGING ===========================
-
-// 静态全局变量：存储当前注册的日志回调（默认NULL）
 static LucpLogCallback g_log_callback = NULL;
-
-// 注册日志回调函数的实现
 void lucp_set_log_callback(LucpLogCallback callback) {
     g_log_callback = callback;
 }
-
-// 库内部使用的日志打印函数（带文件和行号）
-// 内部函数，通过宏封装后使用，自动传入__FILE__和__LINE__
 static void lucp_log_internal(LucpLogLevel level, const char *file, int line, const char *format, ...) {
     if (!g_log_callback) {
-        return; // 未注册回调，不打印日志
+        return;
     }
-    // 调用可变参数回调函数（需要用va_list处理）
     va_list args;
     va_start(args, format);
-    // 注意：回调函数的参数是"format, ..."，这里需要用va_arg转发
-    // 由于回调函数定义为可变参数，需用vprintf风格的方式调用
-    // 这里通过stdarg.h的宏实现参数转发
-    g_log_callback(level, file, line, format, args);
+    char logmsg[1024];
+    vsnprintf(logmsg, sizeof(logmsg), format, args);        
+    g_log_callback(level, file, line, logmsg);
     va_end(args);
 }
-// 新增：宏封装，简化内部调用（自动传入当前文件和行号）
 #define LUCP_LOG(level, format, ...) \
     lucp_log_internal(level, __FILE__, __LINE__, format, ##__VA_ARGS__)
-
-
 // ================================ LOGGING ===========================
 
 
@@ -117,7 +105,7 @@ int lucp_frame_pack(const lucp_frame_t* frame, uint8_t* buf, size_t buflen)
         offset += frame->textInfo_len;
     }
 
-    LUCP_LOG(LUCP_LOG_DEBUG, "Frame packed (msgType=%u, seq=%u, status=%u, textInfo_len=%u)",
+    LUCP_LOG(LUCP_LOG_DEBUG, "Frame packed (msgType=0x%02X, seq=%u, status=0x%02X, textInfo_len=%u)",
              frame->msgType, frame->seq_num, frame->status, frame->textInfo_len);
 
     return offset;
@@ -165,7 +153,8 @@ int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen)
 
     if (frame->textInfo_len > LUCP_MAX_TEXTINFO_LEN)
     {
-        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_unpack: textInfo length %u exceeds max %d", frame->textInfo_len, LUCP_MAX_TEXTINFO_LEN);
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_unpack: textInfo length %u exceeds max %d, buffer cleared", frame->textInfo_len, LUCP_MAX_TEXTINFO_LEN);
+        // 发现异常，直接丢弃整个缓冲区
         return -1;
     }
     if (buflen < (size_t) (14 + frame->textInfo_len))
@@ -174,10 +163,13 @@ int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen)
         return 0;
     }
 
-    if (frame->textInfo_len > 0)
+    // 再次防护，确保不会越界
+    if (frame->textInfo_len > 0 && frame->textInfo_len <= LUCP_MAX_TEXTINFO_LEN)
+    {
         memcpy(frame->textInfo, buf + 14, frame->textInfo_len);
+    }
 
-    LUCP_LOG(LUCP_LOG_DEBUG, "Frame unpacked (msgType=%u, seq=%u, status=%u, textInfo_len=%u)",
+    LUCP_LOG(LUCP_LOG_DEBUG, "Frame unpacked (msgType=0x%02X, seq=%u, status=0x%02X, textInfo_len=%u)",
              frame->msgType, frame->seq_num, frame->status, frame->textInfo_len);
 
     return 14 + frame->textInfo_len;
@@ -213,7 +205,7 @@ void lucp_frame_make(lucp_frame_t* frame,
     if (textInfo && textInfo_len > 0)
         memcpy(frame->textInfo, textInfo, textInfo_len);
 
-    LUCP_LOG(LUCP_LOG_INFO, "Frame made (msgType=%u, seq=%u, status=%u, textInfo_len=%u)",
+    LUCP_LOG(LUCP_LOG_INFO, "Frame made (msgType=0x%02X, seq=%u, status=0x%02X, textInfo_len=%u)",
              msgType, seq, status, textInfo_len);
 }
 
@@ -285,7 +277,7 @@ int lucp_net_send(lucp_net_ctx_t* ctx, const lucp_frame_t* frame)
         LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send: Socket write failed");
         return -1;
     }
-    LUCP_LOG(LUCP_LOG_INFO, "Frame sent (msgType=%u, seq=%u)", frame->msgType, frame->seq_num);
+    LUCP_LOG(LUCP_LOG_INFO, "Frame sent (msgType=0x%02X, seq=%u)", frame->msgType, frame->seq_num);
     return 0;
 }
 
@@ -309,7 +301,7 @@ int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame)
         if (remain > 0)
             memmove(ctx->rbuf, ctx->rbuf + parsed, remain);
         ctx->rbuf_len = remain;
-        LUCP_LOG(LUCP_LOG_INFO, "Frame received from buffer (msgType=%u, seq=%u)", frame->msgType, frame->seq_num);
+        LUCP_LOG(LUCP_LOG_INFO, "Frame received from buffer (msgType=0x%02X, seq=%u)", frame->msgType, frame->seq_num);
         return 0;
     }
     else if (parsed < 0)
@@ -351,7 +343,7 @@ int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame)
             if (remain > 0)
                 memmove(ctx->rbuf, ctx->rbuf + parsed, remain);
             ctx->rbuf_len = remain;
-            LUCP_LOG(LUCP_LOG_INFO, "Frame received from network (msgType=%u, seq=%u)", frame->msgType, frame->seq_num);
+            LUCP_LOG(LUCP_LOG_INFO, "Frame received from network (msgType=0x%02X, seq=%u)", frame->msgType, frame->seq_num);
             return 0;
         }
         else if (parsed < 0)
@@ -413,7 +405,7 @@ int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
             if (lucp_net_recv(ctx, reply) == 0 && reply->msgType == expect_cmd &&
                 reply->seq_num == frame->seq_num)
             {
-                LUCP_LOG(LUCP_LOG_INFO, "lucp_net_send_with_retries: Received expected reply (msgType=%u, seq=%u)", reply->msgType, reply->seq_num);
+                LUCP_LOG(LUCP_LOG_INFO, "lucp_net_send_with_retries: Received expected reply (msgType=0x%02X, seq=%u)", reply->msgType, reply->seq_num);
                 return 0;
             }
             else

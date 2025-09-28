@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 
+// ================================ glibc 通用部分 ==========================
 /**
  * LUCP 协议常量
  */
@@ -76,8 +77,8 @@ void lucp_frame_make(lucp_frame_t* frame,
                      uint8_t status,
                      const char* textInfo,
                      uint16_t textStrlen);
-
-/* 以下接口涉及网络层辅助方法，仅支持Linux平台 */
+             
+// =========================* 以下接口涉及网络层辅助方法，仅支持Linux平台 */ ===========================
 #ifndef _WIN32
 /**
  * LUCP 网络上下文（用于重组和套接字状态）
@@ -106,10 +107,14 @@ int lucp_net_send(lucp_net_ctx_t* ctx, const lucp_frame_t* frame);
  */
 int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame);
 
-/**
- * 发送一个LUCP帧，并等待预期回复，期间会进行重试。
- * 成功时返回0，出错时返回-1。
- */
+/// @brief 发送LUCP帧并等待特定回复，支持重试和超时
+/// @param ctx LUCP 网络上下文
+/// @param frame 要发送的数据帧[in]
+/// @param reply 预期的回复帧[out]
+/// @param expect_cmd 期望的回复报文类型
+/// @param n_retries 重试次数
+/// @param timeout_ms 每次等待回复的超时时间（毫秒）
+/// @return 
 int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
                                lucp_frame_t* frame,
                                lucp_frame_t* reply,
@@ -134,9 +139,8 @@ typedef enum {
 //   level: 日志级别
 //   file: 日志产生的源文件（如"lucp.c"）
 //   line: 日志产生的行号
-//   format: 日志格式化字符串（同printf）
-//   ...: 可变参数（与format对应）
-typedef void (*LucpLogCallback)(LucpLogLevel level, const char *file, int line, const char *format, ...);
+//   logmsg: 日志字符串
+typedef void (*LucpLogCallback)(LucpLogLevel level, const char *file, int line, const char *logmsg);
 
 // 注册日志回调函数
 // 调用方通过此函数设置自定义日志处理逻辑

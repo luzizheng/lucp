@@ -5,11 +5,29 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include "lucp.h"
+#include <lucp.h>
 #include <sys/select.h>
+#include <stdarg.h>
 
 #define DEMO_SERVER_IP   "127.0.0.1"
 #define DEMO_SERVER_PORT 32100
+
+void handle_lucp_log(LucpLogLevel level, const char *file, int line, const char *logmsg)
+{
+    const char *level_str = "";
+    switch (level) {
+        case LUCP_LOG_DEBUG: level_str = "DEBUG"; break;
+        case LUCP_LOG_INFO:  level_str = "INFO";  break;
+        case LUCP_LOG_WARN:  level_str = "WARN";  break;
+        case LUCP_LOG_ERROR: level_str = "ERROR"; break;
+        default: level_str = "UNKNOWN"; break;
+    }
+    if  (level == LUCP_LOG_ERROR || level == LUCP_LOG_WARN) {
+        fprintf(stderr, "[%s] (%s:%d) %s\n", level_str, file, line, logmsg);
+        return;
+    }
+    printf("[%s] (%s:%d) %s\n", level_str, file, line, logmsg);
+}
 
 // Simulate FTP login: 80% success, 20% fail
 int simulate_ftp_login(char *reason, size_t sz) {
@@ -28,6 +46,7 @@ int simulate_ftp_download(char *reason, size_t sz) {
 }
 
 int main() {
+    lucp_set_log_callback(handle_lucp_log);
     srand(time(NULL) ^ getpid());
     int sockfd;
     struct sockaddr_in servaddr;
