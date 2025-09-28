@@ -15,3 +15,6 @@ add_subdirectory(lucpd)
 
 # 测试程序
 add_subdirectory(demo)
+
+# luftpd FTP服务器
+add_subdirectory(luftpd)
