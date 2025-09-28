@@ -9,6 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 
+
 #define RATE_LIMIT_SECONDS 3
 #define IP_HASH_SIZE       1024
 
@@ -139,4 +140,30 @@ uint64_t get_now_ms(void)
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return ((uint64_t) tv.tv_sec) * 1000 + tv.tv_usec / 1000;
+}
+
+void handle_lucp_log(LucpLogLevel level, const char *file, int line, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    time_t now         = time(NULL);
+    struct tm* tm_info = localtime(&now);
+    char time_str[20];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    const char* level_str = "UNKNOWN";
+    switch (level) {
+        case LUCP_LOG_DEBUG: level_str = "DEBUG"; break;
+        case LUCP_LOG_INFO:  level_str = "INFO";  break;
+        case LUCP_LOG_WARN:  level_str = "WARN";  break;
+        case LUCP_LOG_ERROR: level_str = "ERROR"; break;
+    }
+
+    fprintf(stdout, "[%s] %s (%s:%d): ", time_str, level_str, file, line);
+    vfprintf(stdout, format, args);
+    fprintf(stdout, "\n");
+    fflush(stdout);
+
+    va_end(args);
 }

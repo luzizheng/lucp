@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
+#include <lucp.h>
 
 // 获取当前时间戳
 time_t get_current_timestamp();
@@ -20,4 +21,7 @@ void simulate_delay(int seconds);
 bool check_rate_limit(const char* client_ip, time_t* last_access);
 
 uint64_t get_now_ms(void);
+
+void handle_lucp_log(LucpLogLevel level, const char *file, int line, const char *format, ...);
+
 #endif // UTILS_H

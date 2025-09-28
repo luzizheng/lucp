@@ -40,9 +40,12 @@ typedef struct
 
 static LucpdConfig_t g_lucpdcfg;
 
-// Signal handler for graceful shutdown
+// 全局运行标志
 atomic_bool server_running = true;
+// 监听Socket
 int listen_fd              = -1;
+
+// 信号处理函数
 void handle_sig(int sig)
 {
     (void) sig;
@@ -52,6 +55,8 @@ void handle_sig(int sig)
     printf("[Server] Shutting down...\n");
 }
 
+
+// 会话线程函数
 static void* session_thread(void* arg)
 {
     LucpSession_t* sess = (LucpSession_t*) arg;
@@ -231,13 +236,20 @@ static void* session_thread(void* arg)
 
 int main(int argc, char** argv)
 {
-    lucpd_cfg_load_with_entryArgs(&g_lucpdcfg, argc, argv);
-
-    // Set up signal handler
+    // 设置SIGINT和SIGTERM的处理函数
     signal(SIGINT, handle_sig);
     signal(SIGTERM, handle_sig);
 
+    // 注册日志回调
+    lucp_set_log_callback(handle_lucp_log);
+
+    // 加载配置
+    lucpd_cfg_load_with_entryArgs(&g_lucpdcfg, argc, argv);
+
+    // 初始化随机数种子
     srand(time(NULL));
+
+    // 创建监听Socket
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd < 0)
     {
@@ -245,19 +257,26 @@ int main(int argc, char** argv)
         exit(1);
     }
     int opt = 1;
+
+    // 允许地址重用
     setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    // 绑定地址和端口
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = inet_addr(g_lucpdcfg.network.ip);
     addr.sin_port        = htons(g_lucpdcfg.network.port);
 
+    // 绑定和监听
     if (bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)) < 0)
     {
         perror("bind");
         close(listen_fd);
         exit(1);
     }
+
+    // 开始监听
     if (listen(listen_fd, g_lucpdcfg.network.max_clients) < 0)
     {
         perror("listen");
@@ -270,10 +289,14 @@ int main(int argc, char** argv)
            g_lucpdcfg.network.max_clients);
 
     int client_count = 0;
+
+    // 主循环，接受连接
     while (server_running)
     {
         struct sockaddr_in cli_addr;
         socklen_t cli_len = sizeof(cli_addr);
+
+        // 接受新连接
         int client_fd     = accept(listen_fd, (struct sockaddr*) &cli_addr, &cli_len);
         if (client_fd < 0)
         {
@@ -282,12 +305,16 @@ int main(int argc, char** argv)
             perror("accept");
             break;
         }
+
+        // 检查最大连接数
         if (client_count >= g_lucpdcfg.network.max_clients)
         {
             printf("[Server] Max clients reached, rejecting connection\n");
             close(client_fd);
             continue;
         }
+
+        // 创建会话线程
         LucpSession_t* sess  = calloc(1, sizeof(LucpSession_t));
         sess->fd             = client_fd;
         sess->config         = &g_lucpdcfg;
@@ -302,3 +329,5 @@ int main(int argc, char** argv)
     sleep(1); // Let threads finish
     return 0;
 }
+
+

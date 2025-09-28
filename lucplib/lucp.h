@@ -116,7 +116,32 @@ int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
                                uint8_t expect_cmd,
                                int n_retries,
                                int timeout_ms);
+
+
 #endif // !_WIN32
+
+// ======================================= LOGGING ====================================
+// 日志级别枚举
+typedef enum {
+    LUCP_LOG_DEBUG,   // 调试信息（详细过程）
+    LUCP_LOG_INFO,    // 普通信息（正常流程）
+    LUCP_LOG_WARN,    // 警告（非致命错误）
+    LUCP_LOG_ERROR    // 错误（致命问题）
+} LucpLogLevel;
+
+// 日志回调函数类型定义
+// 参数说明：
+//   level: 日志级别
+//   file: 日志产生的源文件（如"lucp.c"）
+//   line: 日志产生的行号
+//   format: 日志格式化字符串（同printf）
+//   ...: 可变参数（与format对应）
+typedef void (*LucpLogCallback)(LucpLogLevel level, const char *file, int line, const char *format, ...);
+
+// 注册日志回调函数
+// 调用方通过此函数设置自定义日志处理逻辑
+// 参数：callback - 调用方实现的日志回调函数（NULL表示禁用日志）
+void lucp_set_log_callback(LucpLogCallback callback);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
 
 #ifdef __cplusplus
 }

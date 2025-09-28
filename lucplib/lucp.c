@@ -1,6 +1,42 @@
 #include "lucp.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
+#include <errno.h>
+
+// ================================ LOGGING ===========================
+
+// 静态全局变量：存储当前注册的日志回调（默认NULL）
+static LucpLogCallback g_log_callback = NULL;
+
+// 注册日志回调函数的实现
+void lucp_set_log_callback(LucpLogCallback callback) {
+    g_log_callback = callback;
+}
+
+// 库内部使用的日志打印函数（带文件和行号）
+// 内部函数，通过宏封装后使用，自动传入__FILE__和__LINE__
+static void lucp_log_internal(LucpLogLevel level, const char *file, int line, const char *format, ...) {
+    if (!g_log_callback) {
+        return; // 未注册回调，不打印日志
+    }
+    // 调用可变参数回调函数（需要用va_list处理）
+    va_list args;
+    va_start(args, format);
+    // 注意：回调函数的参数是"format, ..."，这里需要用va_arg转发
+    // 由于回调函数定义为可变参数，需用vprintf风格的方式调用
+    // 这里通过stdarg.h的宏实现参数转发
+    g_log_callback(level, file, line, format, args);
+    va_end(args);
+}
+// 新增：宏封装，简化内部调用（自动传入当前文件和行号）
+#define LUCP_LOG(level, format, ...) \
+    lucp_log_internal(level, __FILE__, __LINE__, format, ##__VA_ARGS__)
+
+
+// ================================ LOGGING ===========================
+
+
 
 /* ---------- 编译期探测本机字节序 ---------- */
 static inline int is_big_endian(void)
@@ -36,31 +72,26 @@ static inline uint16_t ntohs_c(uint16_t net16) { return htons_c(net16); /* 完�
 /* ---------- 编译期探测本机字节序 ---------- */
 
 /**
- * Packs a lucp_frame_t into a buffer.
- * Returns number of bytes written (>0) on success, -1 on error.
+ * 将 lucp_frame_t 结构体打包到缓冲区中。
+ * 成功时返回写入的字节数（>0），出错时返回 -1。
  */
 int lucp_frame_pack(const lucp_frame_t* frame, uint8_t* buf, size_t buflen)
 {
     if (!frame || !buf)
     {
-        fprintf(stderr, "[LUCP] lucp_frame_pack: NULL input\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_pack: NULL input");
         return -1;
     }
 
     // Header = 14 bytes
     if (buflen < (size_t) (14 + frame->textInfo_len))
     {
-        fprintf(stderr,
-                "[LUCP] lucp_frame_pack: Output buffer too small (%d required)\n",
-                14 + frame->textInfo_len);
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_pack: Output buffer too small (%d required)", 14 + frame->textInfo_len);
         return -1;
     }
     if (frame->textInfo_len > LUCP_MAX_TEXTINFO_LEN)
     {
-        fprintf(stderr,
-                "[LUCP] lucp_frame_pack: textInfo length %u exceeds max %d\n",
-                frame->textInfo_len,
-                LUCP_MAX_TEXTINFO_LEN);
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_pack: textInfo length %u exceeds max %d", frame->textInfo_len, LUCP_MAX_TEXTINFO_LEN);
         return -1;
     }
 
@@ -86,30 +117,26 @@ int lucp_frame_pack(const lucp_frame_t* frame, uint8_t* buf, size_t buflen)
         offset += frame->textInfo_len;
     }
 
-    fprintf(stderr,
-            "[LUCP] Frame packed (msgType=%u, seq=%u, status=%u, textInfo_len=%u)\n",
-            frame->msgType,
-            frame->seq_num,
-            frame->status,
-            frame->textInfo_len);
+    LUCP_LOG(LUCP_LOG_DEBUG, "Frame packed (msgType=%u, seq=%u, status=%u, textInfo_len=%u)",
+             frame->msgType, frame->seq_num, frame->status, frame->textInfo_len);
 
     return offset;
 }
 
 /**
- * Unpacks a lucp_frame_t from buffer.
- * Returns bytes consumed (>0) on success, 0 if incomplete, -1 on error.
+ * 从缓冲区中解包 lucp_frame_t 结构。
+ * 成功时返回消耗的字节数（>0），不完整时返回 0，出错时返回 -1。
  */
 int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen)
 {
     if (!frame || !buf)
     {
-        fprintf(stderr, "[LUCP] lucp_frame_unpack: NULL input\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_unpack: NULL input");
         return -1;
     }
     if (buflen < 14)
     {
-        // Not enough for header
+        // header不完整
         return 0;
     }
 
@@ -118,7 +145,7 @@ int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen)
     magic = ntohl_c(magic);
     if (magic != LUCP_MAGIC)
     {
-        fprintf(stderr, "[LUCP] lucp_frame_unpack: Invalid magic 0x%08x\n", magic);
+        LUCP_LOG(LUCP_LOG_WARN, "lucp_frame_unpack: Invalid magic 0x%08x", magic);
         return -1;
     }
     frame->magic         = magic;
@@ -138,34 +165,26 @@ int lucp_frame_unpack(lucp_frame_t* frame, const uint8_t* buf, size_t buflen)
 
     if (frame->textInfo_len > LUCP_MAX_TEXTINFO_LEN)
     {
-        fprintf(stderr,
-                "[LUCP] lucp_frame_unpack: textInfo length %u exceeds max %d\n",
-                frame->textInfo_len,
-                LUCP_MAX_TEXTINFO_LEN);
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_unpack: textInfo length %u exceeds max %d", frame->textInfo_len, LUCP_MAX_TEXTINFO_LEN);
         return -1;
     }
     if (buflen < (size_t) (14 + frame->textInfo_len))
     {
-        // Wait for more data
+        // 等待更多数据
         return 0;
     }
 
     if (frame->textInfo_len > 0)
         memcpy(frame->textInfo, buf + 14, frame->textInfo_len);
 
-    fprintf(stderr,
-            "[LUCP] Frame unpacked (msgType=%u, seq=%u, status=%u, "
-            "textInfo_len=%u)\n",
-            frame->msgType,
-            frame->seq_num,
-            frame->status,
-            frame->textInfo_len);
+    LUCP_LOG(LUCP_LOG_DEBUG, "Frame unpacked (msgType=%u, seq=%u, status=%u, textInfo_len=%u)",
+             frame->msgType, frame->seq_num, frame->status, frame->textInfo_len);
 
     return 14 + frame->textInfo_len;
 }
 
 /**
- * Initializes a lucp_frame_t with the provided fields and textInfo.
+ * 使用提供的字段和 textInfo 初始化一个 lucp_frame_t。
  */
 void lucp_frame_make(lucp_frame_t* frame,
                      uint32_t seq,
@@ -176,15 +195,12 @@ void lucp_frame_make(lucp_frame_t* frame,
 {
     if (!frame)
     {
-        fprintf(stderr, "[LUCP] lucp_frame_make: NULL frame\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_frame_make: NULL frame");
         return;
     }
     if (textInfo_len > LUCP_MAX_TEXTINFO_LEN)
     {
-        fprintf(stderr,
-                "[LUCP] lucp_frame_make: textInfo_len %u exceeds max %d. Truncating.\n",
-                textInfo_len,
-                LUCP_MAX_TEXTINFO_LEN);
+        LUCP_LOG(LUCP_LOG_WARN, "lucp_frame_make: textInfo_len %u exceeds max %d. Truncating.", textInfo_len, LUCP_MAX_TEXTINFO_LEN);
         textInfo_len = LUCP_MAX_TEXTINFO_LEN;
     }
     frame->magic         = LUCP_MAGIC;
@@ -197,37 +213,32 @@ void lucp_frame_make(lucp_frame_t* frame,
     if (textInfo && textInfo_len > 0)
         memcpy(frame->textInfo, textInfo, textInfo_len);
 
-    fprintf(stderr,
-            "[LUCP] Frame made (msgType=%u, seq=%u, status=%u, textInfo_len=%u)\n",
-            msgType,
-            seq,
-            status,
-            textInfo_len);
+    LUCP_LOG(LUCP_LOG_INFO, "Frame made (msgType=%u, seq=%u, status=%u, textInfo_len=%u)",
+             msgType, seq, status, textInfo_len);
 }
 
-#ifndef _WIN32
-#include <errno.h>
+#ifndef _WIN32 
 #include <sys/select.h>
 #include <unistd.h>
 /**
- * Initializes the LUCP network context.
+ * 初始化LUCP网络上下文。
  */
 void lucp_net_ctx_init(lucp_net_ctx_t* ctx, int fd)
 {
     if (!ctx)
     {
-        fprintf(stderr, "[LUCP] lucp_net_ctx_init: NULL ctx\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_ctx_init: NULL ctx");
         return;
     }
     ctx->fd       = fd;
     ctx->rbuf_len = 0;
     memset(ctx->rbuf, 0, sizeof(ctx->rbuf));
-    fprintf(stderr, "[LUCP] Network context initialized with fd=%d\n", fd);
+    LUCP_LOG(LUCP_LOG_INFO, "Network context initialized with fd=%d", fd);
 }
 
 /**
- * Writes the entire buffer to the socket.
- * Returns 0 on success, -1 on error.
+ * 将整个缓冲区写入套接字。
+ * 成功时返回 0，出错时返回 -1。
  */
 static int full_write(int fd, const void* buf, size_t len)
 {
@@ -239,12 +250,12 @@ static int full_write(int fd, const void* buf, size_t len)
         {
             if (errno == EINTR)
                 continue;
-            fprintf(stderr, "[LUCP] full_write: Write error: %s\n", strerror(errno));
+            LUCP_LOG(LUCP_LOG_ERROR, "full_write: Write error: %s", strerror(errno));
             return -1;
         }
         if (n == 0)
         {
-            fprintf(stderr, "[LUCP] full_write: Write returned 0 (connection closed?)\n");
+            LUCP_LOG(LUCP_LOG_WARN, "full_write: Write returned 0 (connection closed?)");
             return -1;
         }
         written += (size_t) n;
@@ -253,66 +264,63 @@ static int full_write(int fd, const void* buf, size_t len)
 }
 
 /**
- * Sends a LUCP frame.
+ * 发送要给LUCP帧
  */
 int lucp_net_send(lucp_net_ctx_t* ctx, const lucp_frame_t* frame)
 {
     if (!ctx || !frame)
     {
-        fprintf(stderr, "[LUCP] lucp_net_send: NULL input\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send: NULL input");
         return -1;
     }
     uint8_t buf[14 + LUCP_MAX_TEXTINFO_LEN];
     int len = lucp_frame_pack(frame, buf, sizeof(buf));
     if (len < 0)
     {
-        fprintf(stderr, "[LUCP] lucp_net_send: Frame pack failed\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send: Frame pack failed");
         return -1;
     }
     if (full_write(ctx->fd, buf, (size_t) len) < 0)
     {
-        fprintf(stderr, "[LUCP] lucp_net_send: Socket write failed\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send: Socket write failed");
         return -1;
     }
-    fprintf(stderr, "[LUCP] Frame sent (msgType=%u, seq=%u)\n", frame->msgType, frame->seq_num);
+    LUCP_LOG(LUCP_LOG_INFO, "Frame sent (msgType=%u, seq=%u)", frame->msgType, frame->seq_num);
     return 0;
 }
 
 /**
- * Receives a complete LUCP frame, handling partial reads and TCP sticking.
+ * 接收完整的LUCP帧，处理部分读取和TCP粘包
  */
 int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame)
 {
     if (!ctx || !frame)
     {
-        fprintf(stderr, "[LUCP] lucp_net_recv: NULL input\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_recv: NULL input");
         return -1;
     }
 
-    // Try to parse from buffer first
+    // 尝试从缓冲区中解析
     int parsed = lucp_frame_unpack(frame, ctx->rbuf, ctx->rbuf_len);
     if (parsed > 0)
     {
-        // Move leftover bytes to start of buffer for next read
+        // 移动剩余字节到缓冲区开头，供下次读取
         size_t remain = ctx->rbuf_len - parsed;
         if (remain > 0)
             memmove(ctx->rbuf, ctx->rbuf + parsed, remain);
         ctx->rbuf_len = remain;
-        fprintf(stderr,
-                "[LUCP] Frame received from buffer (msgType=%u, seq=%u)\n",
-                frame->msgType,
-                frame->seq_num);
+        LUCP_LOG(LUCP_LOG_INFO, "Frame received from buffer (msgType=%u, seq=%u)", frame->msgType, frame->seq_num);
         return 0;
     }
     else if (parsed < 0)
     {
-        // Corrupted frame in buffer, discard
+        // 缓冲区中存在损坏帧，丢弃
         ctx->rbuf_len = 0;
-        fprintf(stderr, "[LUCP] lucp_net_recv: Corrupted frame, buffer cleared\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_recv: Corrupted frame, buffer cleared");
         return -1;
     }
 
-    // Need more data
+    // 需要更多数据，从网络读取
     while (1)
     {
         ssize_t n = read(ctx->fd, ctx->rbuf + ctx->rbuf_len, sizeof(ctx->rbuf) - ctx->rbuf_len);
@@ -320,47 +328,44 @@ int lucp_net_recv(lucp_net_ctx_t* ctx, lucp_frame_t* frame)
         {
             if (errno == EINTR)
                 continue;
-            fprintf(stderr, "[LUCP] lucp_net_recv: Read error: %s\n", strerror(errno));
+            LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_recv: Read error: %s", strerror(errno));
             return -1;
         }
         if (n == 0)
         {
-            fprintf(stderr, "[LUCP] lucp_net_recv: Socket closed by peer\n");
+            LUCP_LOG(LUCP_LOG_WARN, "lucp_net_recv: Socket closed by peer");
             return -1;
         }
         ctx->rbuf_len += (size_t) n;
         if (ctx->rbuf_len > sizeof(ctx->rbuf))
         {
-            fprintf(stderr, "[LUCP] lucp_net_recv: Buffer overflow\n");
+            LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_recv: Buffer overflow");
             ctx->rbuf_len = 0;
             return -1;
         }
         parsed = lucp_frame_unpack(frame, ctx->rbuf, ctx->rbuf_len);
         if (parsed > 0)
         {
-            // Move leftover bytes to start of buffer for next read
+            // 移动剩余字节到缓冲区开头，供下次读取
             size_t remain = ctx->rbuf_len - parsed;
             if (remain > 0)
                 memmove(ctx->rbuf, ctx->rbuf + parsed, remain);
             ctx->rbuf_len = remain;
-            fprintf(stderr,
-                    "[LUCP] Frame received from network (msgType=%u, seq=%u)\n",
-                    frame->msgType,
-                    frame->seq_num);
+            LUCP_LOG(LUCP_LOG_INFO, "Frame received from network (msgType=%u, seq=%u)", frame->msgType, frame->seq_num);
             return 0;
         }
         else if (parsed < 0)
         {
-            fprintf(stderr, "[LUCP] lucp_net_recv: Corrupted frame, buffer cleared\n");
+            LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_recv: Corrupted frame, buffer cleared");
             ctx->rbuf_len = 0;
             return -1;
         }
-        // else (parsed == 0): keep reading
+        // else继续读取
     }
 }
 
 /**
- * Sends a LUCP frame and waits for a matching reply, with retries and timeout.
+ * 发送一个LUCP帧，并等待预期回复，期间会进行重试。
  */
 int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
                                lucp_frame_t* frame,
@@ -371,19 +376,20 @@ int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
 {
     if (!ctx || !frame || !reply)
     {
-        fprintf(stderr, "[LUCP] lucp_net_send_with_retries: NULL input\n");
+        LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send_with_retries: NULL input");
         return -1;
     }
 
     for (int i = 0; i < n_retries; ++i)
     {
+        LUCP_LOG(LUCP_LOG_DEBUG, "Send attempt %d", i + 1);
         if (lucp_net_send(ctx, frame) < 0)
         {
-            fprintf(stderr, "[LUCP] lucp_net_send_with_retries: Send attempt %d failed\n", i + 1);
+            LUCP_LOG(LUCP_LOG_WARN, "lucp_net_send_with_retries: Send attempt %d failed", i + 1);
             continue;
         }
 
-        // Wait for reply with select()
+        // 用select等待回复
         fd_set rfds;
         struct timeval tv;
         FD_ZERO(&rfds);
@@ -394,16 +400,12 @@ int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
         int rv = select(ctx->fd + 1, &rfds, NULL, NULL, &tv);
         if (rv < 0 && errno != EINTR)
         {
-            fprintf(
-                stderr, "[LUCP] lucp_net_send_with_retries: select() error: %s\n", strerror(errno));
+            LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send_with_retries: select() error: %s", strerror(errno));
             continue;
         }
         if (rv == 0)
         {
-            fprintf(stderr,
-                    "[LUCP] lucp_net_send_with_retries: Timeout waiting for reply "
-                    "(attempt %d)\n",
-                    i + 1);
+            LUCP_LOG(LUCP_LOG_WARN, "lucp_net_send_with_retries: Timeout waiting for reply (attempt %d)", i + 1);
             continue;
         }
         if (FD_ISSET(ctx->fd, &rfds))
@@ -411,23 +413,17 @@ int lucp_net_send_with_retries(lucp_net_ctx_t* ctx,
             if (lucp_net_recv(ctx, reply) == 0 && reply->msgType == expect_cmd &&
                 reply->seq_num == frame->seq_num)
             {
-                fprintf(stderr,
-                        "[LUCP] lucp_net_send_with_retries: Received expected reply "
-                        "(msgType=%u, seq=%u)\n",
-                        reply->msgType,
-                        reply->seq_num);
+                LUCP_LOG(LUCP_LOG_INFO, "lucp_net_send_with_retries: Received expected reply (msgType=%u, seq=%u)", reply->msgType, reply->seq_num);
                 return 0;
             }
             else
             {
-                fprintf(stderr,
-                        "[LUCP] lucp_net_send_with_retries: Unexpected reply "
-                        "or seq/msgType mismatch\n");
+                LUCP_LOG(LUCP_LOG_WARN, "lucp_net_send_with_retries: Unexpected reply or seq/msgType mismatch");
             }
         }
-        // else retry
+        // else继续重试
     }
-    fprintf(stderr, "[LUCP] lucp_net_send_with_retries: Failed after %d retries\n", n_retries);
+    LUCP_LOG(LUCP_LOG_ERROR, "lucp_net_send_with_retries: Failed after %d retries", n_retries);
     return -1;
 }
 #endif // !_WIN32
