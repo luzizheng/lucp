@@ -7,14 +7,17 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -O2")
 # 配置解析库
 add_subdirectory(third_party/lucfg)
 
+# 日志库
+add_subdirectory(third_party/m_log)
+
 # lucp协议解析库
-add_subdirectory(lucplib)
+# add_subdirectory(lucplib)
 
 # lucp服务器守护进程
-add_subdirectory(lucpd)
+# add_subdirectory(lucpd)
 
 # 测试程序
-add_subdirectory(demo)
+# add_subdirectory(demo)
 
 # luftpd FTP服务器
-add_subdirectory(luftpd)
+# add_subdirectory(luftpd)

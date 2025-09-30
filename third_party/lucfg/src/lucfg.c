@@ -581,3 +581,196 @@ end:
     pthread_mutex_unlock(&h->lock);
     return rc;
 }
+
+
+// get all sections
+int lucfg_get_sections(lucfg_handle_t* h, const char*** out_sections, int* out_count)
+{
+    pthread_mutex_lock(&h->lock);
+    // 使用临时哈希表存储唯一的节名称
+    typedef struct sec_entry
+    {
+        char* section;
+        struct sec_entry* next;
+    } sec_entry_t;
+    sec_entry_t* sec_table[HASH_SIZE] = {0};
+    int sec_count                     = 0;
+
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        for (entry_t* e = h->table[i]; e; e = e->next)
+        {
+            unsigned idx = hash_func(e->section, ""); // 仅基于节名称哈希
+            int found    = 0;
+            for (sec_entry_t* se = sec_table[idx]; se; se = se->next)
+            {
+                if (str_icmp(se->section, e->section) == 0)
+                {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                sec_entry_t* new_se = malloc(sizeof(sec_entry_t));
+                if (!new_se)
+                    goto cleanup;
+                new_se->section = strdup(e->section);
+                if (!new_se->section)
+                {
+                    free(new_se);
+                    goto cleanup;
+                }
+                new_se->next       = sec_table[idx];
+                sec_table[idx]     = new_se;
+                ++sec_count;
+            }
+        }
+    }
+
+    // 分配输出数组
+    const char** sections = malloc(sizeof(char*) * sec_count);
+    if (!sections)
+        goto cleanup;
+
+    int idx = 0;
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        for (sec_entry_t* se = sec_table[i]; se; se = se->next)
+        {
+            sections[idx++] = se->section; // 直接使用 strdup 的字符串
+        }
+    }
+
+    *out_sections = sections;
+    *out_count    = sec_count;
+
+    // 清理临时哈希表，但不释放节名称字符串
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        sec_entry_t* se = sec_table[i];
+        while (se)
+        {
+            sec_entry_t* tmp = se->next;
+            free(se); // 仅释放结构体
+            se = tmp;
+        }
+    }
+    pthread_mutex_unlock(&h->lock);
+    return LUCFG_OK;
+cleanup:
+    // 清理临时哈希表
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        sec_entry_t* se = sec_table[i];
+        while (se)
+        {
+            sec_entry_t* tmp = se->next;
+            free(se->section);
+            free(se);
+            se = tmp;
+        }
+    }
+    return LUCFG_ERR_OPEN;
+}
+// get all keys in a section
+int lucfg_get_keys(lucfg_handle_t* h, const char* section, const char*** out_keys, int* out_count)
+{
+    pthread_mutex_lock(&h->lock);
+    // 使用临时哈希表存储唯一的键名称
+    typedef struct key_entry
+    {
+        char* key;
+        struct key_entry* next;
+    } key_entry_t;
+    key_entry_t* key_table[HASH_SIZE] = {0};
+    int key_count                     = 0;
+
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        for (entry_t* e = h->table[i]; e; e = e->next)
+        {
+            if (str_icmp(e->section, section) != 0)
+                continue;
+            unsigned idx = hash_func("", e->key); // 仅基于键名称哈希
+            int found    = 0;
+            for (key_entry_t* ke = key_table[idx]; ke; ke = ke->next)
+            {
+                if (str_icmp(ke->key, e->key) == 0)
+                {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                key_entry_t* new_ke = malloc(sizeof(key_entry_t));
+                if (!new_ke)
+                    goto cleanup;
+                new_ke->key = strdup(e->key);
+                if (!new_ke->key)
+                {
+                    free(new_ke);
+                    goto cleanup;
+                }
+                new_ke->next      = key_table[idx];
+                key_table[idx]    = new_ke;
+                ++key_count;
+            }
+        }
+    }
+
+    // 分配输出数组
+    const char** keys = malloc(sizeof(char*) * key_count);
+    if (!keys)
+        goto cleanup;
+
+    int idx = 0;
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        for (key_entry_t* ke = key_table[i]; ke; ke = ke->next)
+        {
+            keys[idx++] = ke->key; // 直接使用 strdup 的字符串
+        }
+    }
+
+    *out_keys  = keys;
+    *out_count = key_count;
+
+    // 清理临时哈希表，但不释放键名称字符串
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        key_entry_t* ke = key_table[i];
+        while (ke)
+        {
+            key_entry_t* tmp = ke->next;
+            free(ke); // 仅释放结构体
+            ke = tmp;
+        }
+    }
+    pthread_mutex_unlock(&h->lock);
+    return LUCFG_OK;
+cleanup:
+    // 清理临时哈希表
+    for (int i = 0; i < HASH_SIZE; ++i)
+    {
+        key_entry_t* ke = key_table[i];
+        while (ke)
+        {
+            key_entry_t* tmp = ke->next;
+            free(ke->key);
+            free(ke);
+            ke = tmp;
+        }
+    }
+    return LUCFG_ERR_OPEN;
+}
+// free sections/keys array
+void lucfg_free_array(const char** array, int count)
+{
+    if (!array)
+        return;
+    for (int i = 0; i < count; ++i)
+        free((void*) array[i]);
+    free(array);
+}

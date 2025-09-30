@@ -152,6 +152,15 @@ lucfg_handle_t* lucfg_open(const char* filename);
  */
 void lucfg_close(lucfg_handle_t* h);
 
+
+// get all sections
+int lucfg_get_sections(lucfg_handle_t* h, const char*** out_sections, int* out_count);
+// get all keys in a section
+int lucfg_get_keys(lucfg_handle_t* h, const char* section, const char*** out_keys, int* out_count); 
+// free sections/keys array
+void lucfg_free_array(const char** array, int count);
+
+
 /* ================================================================== */
 /* VALUE RETRIEVAL FUNCTIONS                                          */
 /* ================================================================== */
