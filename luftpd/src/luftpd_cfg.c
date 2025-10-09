@@ -16,14 +16,14 @@ int luftpd_cfg_load_with_file(LuftpdConfig_t* cfg, const char* config_file)
     }
 
     // 解析配置项
-    if (lucfg_get_string(handle, "server", "ip", cfg->ip) != LUCFG_OK) {
+    if (lucfg_get_string(handle, "server", "ip", (const char **)&cfg->ip) != LUCFG_OK) {
         strcpy(cfg->ip, LUFTPD_DEFAULT_IP);
     }
     if (lucfg_get_uint16(handle, "server", "port", &cfg->port) != LUCFG_OK) {
         cfg->port = LUFTPD_DEFAULT_PORT;
     }
 
-    if (lucfg_get_string(handle, "server", "root_dir", cfg->root_dir) != LUCFG_OK) {
+    if (lucfg_get_string(handle, "server", "root_dir", (const char **)&cfg->root_dir) != LUCFG_OK) {
         strcpy(cfg->root_dir, LUFTPD_DEFAULT_ROOT_DIR);
     }
 

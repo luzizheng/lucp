@@ -45,7 +45,9 @@ int simulate_ftp_download(char *reason, size_t sz) {
     return 0x21;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     lucp_set_log_callback(handle_lucp_log);
     srand(time(NULL) ^ getpid());
     int sockfd;

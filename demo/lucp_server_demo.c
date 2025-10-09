@@ -7,9 +7,11 @@
 #include <errno.h>
 #include <time.h>
 #include "lucp.h"
+#include <logMgr.h>
 
 
 #define DEMO_PORT 23456
+#define APPID "lucpd"
 
 // Simulate archiving and FTP upload step
 void simulate_log_prep(int *status, char *payload, size_t payload_size) {
@@ -28,7 +30,13 @@ void simulate_log_prep(int *status, char *payload, size_t payload_size) {
     usleep(700 * 1000); // Simulate delay (700ms)
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    (void)argc;
+    (void)argv;
+    
+    dlt_init_client(APPID);
+
     srand(time(NULL));
     int listenfd, connfd;
     struct sockaddr_in addr;
@@ -50,11 +58,11 @@ int main() {
     if (listen(listenfd, 1) < 0) {
         perror("listen"); close(listenfd); return 1;
     }
-    printf("LUCP demo server listening on port %d...\n", DEMO_PORT);
+    dlt_log_info(APPID, "LUCP demo server listening on port %d...\n", DEMO_PORT);
 
     connfd = accept(listenfd, NULL, NULL);
     if (connfd < 0) { perror("accept"); close(listenfd); return 1; }
-    printf("LUCP demo server: client connected\n");
+    dlt_log_info(APPID, "LUCP demo server: client connected\n");
 
     lucp_net_ctx_t netctx;
     lucp_net_ctx_init(&netctx, connfd);
@@ -62,11 +70,11 @@ int main() {
 
     // 1. Wait for 0x01 request
     if (lucp_net_recv(&netctx, &frame) == 0 && frame.msgType == 0x01) {
-        printf("[Server] Received 0x01 request (seq=%u)\n", frame.seq_num);
+        dlt_log_info(APPID, "[Server] Received 0x01 request (seq=%u)\n", frame.seq_num);
         // 2. Immediately respond with 0x02 ACK
         lucp_frame_make(&reply, frame.seq_num, 0x02, 1, NULL, 0);
         lucp_net_send(&netctx, &reply);
-        printf("[Server] Sent 0x02 ACK\n");
+        dlt_log_info(APPID, "[Server] Sent 0x02 ACK\n");
 
         // 3. Simulate log prep (archive + FTP upload)
         int prep_status = 0;
@@ -76,20 +84,21 @@ int main() {
         // 4. Send 0x03 with result
         lucp_frame_make(&reply, frame.seq_num, 0x03, prep_status, prep_payload, strlen(prep_payload));
         lucp_net_send(&netctx, &reply);
-        printf("[Server] Sent 0x03 (status=0x%x, payload=\"%s\")\n", prep_status, prep_payload);
+        dlt_log_info(APPID, "[Server] Sent 0x03 (status=0x%x, payload=\"%s\")\n", prep_status, prep_payload);
 
         // 5. Wait for 0x04 (FTP login confirm)
         if (lucp_net_recv(&netctx, &frame) == 0 && frame.msgType == 0x04) {
-            printf("[Server] Received 0x04 (FTP login result, status=0x%x)\n", frame.status);
+            dlt_log_info(APPID, "[Server] Received 0x04 (FTP login result, status=0x%x)\n", frame.status);
             // 6. Wait for 0x05 (download confirm)
             if (lucp_net_recv(&netctx, &frame) == 0 && frame.msgType == 0x05) {
-                printf("[Server] Received 0x05 (download result, status=0x%x)\n", frame.status);
+                dlt_log_info(APPID, "[Server] Received 0x05 (download result, status=0x%x)\n", frame.status);
             }
         }
     }
 
     close(connfd);
     close(listenfd);
-    printf("LUCP demo server: done\n");
+    dlt_log_info(APPID, "LUCP demo server: done\n");
+    dlt_free_client(APPID);
     return 0;
 }

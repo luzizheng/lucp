@@ -1,6 +1,7 @@
 #ifndef LUFTPD_CONFIG_H
 #define LUFTPD_CONFIG_H
 #include <stdint.h>
+#include <limits.h>
 #include <netinet/in.h>
 
 #define LUFTPD_DEFAULT_CONFIG_FILE "/etc/luftpd.conf"
@@ -11,10 +12,6 @@
 #define LUFTPD_DEFAULT_MAX_CONNECTIONS 10
 #define LUFTPD_DEFAULT_DATA_PORT_MIN 30000
 #define LUFTPD_DEFAULT_DATA_PORT_MAX 30100
-
-#ifndef PATH_MAX
-#define PATH_MAX 4096
-#endif
 
 
 typedef struct {
@@ -39,7 +36,7 @@ typedef struct
     struct sockaddr_in client_addr;
     int thread_id;
     int is_active;
-    char cwd[PATH_MAX];   /* 相对 root 的路径 */
+    char current_dir[PATH_MAX];   /* 相对 root 的路径 */
     LuftpdTransferType_t transfer_type;
     LuftpdConfig_t *config;
 } LuftpdClient_t;

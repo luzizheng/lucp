@@ -1,5 +1,5 @@
 add_executable(lucp_client_demo lucp_client_demo.c)
 add_executable(lucp_server_demo lucp_server_demo.c)
-target_link_libraries(lucp_client_demo lucp)
-target_link_libraries(lucp_server_demo lucp)
+target_link_libraries(lucp_client_demo lucp log_cli)
+target_link_libraries(lucp_server_demo lucp log_cli)
 install(TARGETS lucp_client_demo lucp_server_demo DESTINATION /usr/local/bin)
