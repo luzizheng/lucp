@@ -1,7 +1,11 @@
 #include "log_server.h"
 #include <stdio.h>
 #include <signal.h>
-
+#include <syslog.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>
 
 // 全局服务端实例
 static DltServer *g_server = NULL;
@@ -45,22 +49,93 @@ void parse_arguments(int argc, char *argv[], MainEntryArgs *args) {
 }
 
 // 信号处理函数
-static void signal_handler(int signum) {
-    if (signum == SIGINT || signum == SIGTERM) {
-        printf("\nReceived termination signal. Stopping server...\n");
-        if (g_server) {
-            dlt_server_stop(g_server);
-        }
+static void signal_handler(int sig) {
+    switch(sig) {
+        case SIGHUP:
+            // 重新加载配置
+            syslog(LOG_INFO, "Received SIGHUP, reloading configuration");
+            break;
+        case SIGTERM:
+            // 优雅退出
+            syslog(LOG_INFO, "Received SIGTERM, Stopping server...");
+            if (g_server) {
+                dlt_server_stop(g_server);
+            }
+            break;
+        case SIGINT:
+            // 优雅退出
+            syslog(LOG_INFO, "Received SIGTERM, Stopping server...");
+            if (g_server) {
+                dlt_server_stop(g_server);
+            }
+            break;
+        default:
+            break;
     }
 }
 
-int main(int argc, char *argv[]) {
+
+
+static void daemonize(const char *name) {
+    pid_t pid;
     
+    // 创建子进程
+    if ((pid = fork()) < 0) {
+        perror("fork");
+        exit(1);
+    } else if (pid != 0) {
+        exit(0); // 父进程退出
+    }
+    
+    // 成为会话组长
+    if (setsid() < 0) {
+        perror("setsid");
+        exit(1);
+    }
+    
+    // 处理信号
+    signal(SIGHUP, signal_handler);
+    signal(SIGTERM, signal_handler);
+    
+    // 第二次fork
+    if ((pid = fork()) < 0) {
+        perror("fork");
+        exit(1);
+    } else if (pid != 0) {
+        exit(0);
+    }
+    
+    // 设置文件掩码
+    umask(0);
+    
+    // 切换工作目录
+    chdir("/");
+    
+    // 关闭所有打开的文件描述符
+    for (int i = 0; i < sysconf(_SC_OPEN_MAX); i++) {
+        close(i);
+    }
+    
+    // 重定向标准流
+    open("/dev/null", O_RDONLY); // stdin
+    open("/dev/null", O_RDWR);   // stdout  
+    open("/dev/null", O_RDWR);   // stderr
+    
+    // 使用syslog记录日志
+    openlog(name, LOG_PID, LOG_DAEMON);
+}
+
+
+int main(int argc, char *argv[]) {
+
+     // 将进程daemon化
+    daemonize("logd");
+    syslog(LOG_INFO, "logd daemon started");
+
     MainEntryArgs args;
     parse_arguments(argc, argv, &args);
     dlt_load_cfg(args.config_file, 1);
     g_dlt_general_cfg.server_port = args.port;
-
 
     
     // 设置信号处理
@@ -70,17 +145,17 @@ int main(int argc, char *argv[]) {
     // 初始化并启动服务端
     g_server = dlt_server_init(&g_dlt_general_cfg);
     if (!g_server) {
-        fprintf(stderr, "Failed to initialize DLT server\n");
+        syslog(LOG_ERR, "Failed to initialize DLT server");
         return 1;
     }
     
-    printf("Starting DLT server on port %d...\n", g_server->port);
+    syslog(LOG_DEBUG, "Starting DLT server on port %d...", g_server->port);
     dlt_server_start(g_server);
     
     // 清理
     dlt_server_destroy(g_server);
     g_server = NULL;
     
-    printf("Server stopped\n");
+    syslog(LOG_DEBUG, "Server stopped.");
     return 0;
 }

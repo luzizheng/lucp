@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <syslog.h>
 // include for stricmp
 #ifdef _WIN32
 #include <string.h>
@@ -73,7 +74,7 @@ int dlt_load_cfg(const char *cfg_file_path, int reset)
     {
         pthread_mutex_unlock(&g_dlt_app_cfgs_lock);
         pthread_mutex_unlock(&g_dlt_cfg_lock);
-        fprintf(stderr, "Failed to open config file: %s\n", cfg_file_path);
+        syslog(LOG_ERR, "Failed to open config file: %s.", cfg_file_path);
         return -1;
     }
 
@@ -173,7 +174,7 @@ int dlt_load_cfg(const char *cfg_file_path, int reset)
         lucfg_close(cfg);
         pthread_mutex_unlock(&g_dlt_app_cfgs_lock);
         pthread_mutex_unlock(&g_dlt_cfg_lock);
-        fprintf(stderr, "Failed to get sections from config file: %s\n", cfg_file_path);
+        syslog(LOG_ERR, "Failed to get sections from config file: %s.", cfg_file_path);
         return -1;
     }
     int app_cfg_index = 0;

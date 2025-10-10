@@ -1,6 +1,6 @@
 #ifndef LUFTPD_UTILS_H
 #define LUFTPD_UTILS_H
-
+#include <stddef.h>
 
 int luftpd_send_raw(int sock, const char *buf, size_t len);
 int luftpd_send_response(int sock, const char *fmt, ...);

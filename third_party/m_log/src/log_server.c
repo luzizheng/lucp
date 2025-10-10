@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <signal.h>
-
+#include <syslog.h>
 
 
 
@@ -221,7 +221,7 @@ static void* client_handler(void *arg) {
     log_protocol_config_free(config);
     close(client->sockfd);
     client->connected = 0;
-    printf("Client %s disconnected\n", client->app_id);
+    syslog(LOG_DEBUG, "Client %s disconnected", client->app_id);
     
     return NULL;
 }
@@ -248,7 +248,7 @@ static void* connection_acceptor(void *arg) {
     DltServer *server = (DltServer*)arg;
     if (!server || server->server_fd < 0) return NULL;
     
-    printf("Server started, listening on port %d\n", server->port);
+    syslog(LOG_DEBUG, "Server started, listening on port %d.", server->port);
     
     while (server->running) {
         struct sockaddr_in client_addr;
@@ -266,7 +266,7 @@ static void* connection_acceptor(void *arg) {
         // 查找空闲槽位
         int slot = find_free_client_slot(server);
         if (slot < 0) {
-            printf("Max clients reached, rejecting new connection\n");
+            syslog(LOG_DEBUG, "Max clients reached, rejecting new connection.");
             close(client_fd);
             continue;
         }
@@ -288,7 +288,7 @@ static void* connection_acceptor(void *arg) {
             client->connected = 0;
             pthread_mutex_destroy(&client->send_lock);
         } else {
-            printf("New client connected from %s:%d (slot %d)\n",
+            syslog(LOG_DEBUG, "New client connected from %s:%d (slot %d).",
                    inet_ntoa(client_addr.sin_addr),
                    ntohs(client_addr.sin_port),
                    slot);
@@ -367,7 +367,7 @@ int dlt_server_start(DltServer *server) {
     
     // 加载配置
     if (dlt_load_cfg("dlt_server.cfg", 0) != 0) {
-        fprintf(stderr, "Warning: Failed to load configuration file\n");
+        syslog(LOG_WARNING, "Failed to load configuration file.");
     }
     
     server->running = 1;

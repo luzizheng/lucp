@@ -6,6 +6,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdarg.h>
+#include <ctype.h>
+#include <sys/socket.h>
+
 
 int luftpd_send_raw(int sock, const char *buf, size_t len)
 {

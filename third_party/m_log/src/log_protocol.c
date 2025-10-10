@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
+#include <syslog.h>
 
 // 初始化日志协议配置
 LogProtocolConfig* log_protocol_config_init(const char *server_ip, uint16_t server_port, 
@@ -1314,7 +1315,7 @@ LogProtocolError log_protocol_check_version(FrameHeader *header) {
     // 记录版本差异，便于后续处理
     if (header->minor_version != LOG_PROTOCOL_MINOR_VERSION) {
         // 可以在这里添加版本差异处理逻辑
-        fprintf(stderr, "Warning: Protocol minor version mismatch (local: %d, remote: %d)\n",
+        syslog(LOG_ERR, "Warning: Protocol minor version mismatch (local: %d, remote: %d).",
                 LOG_PROTOCOL_MINOR_VERSION, header->minor_version);
     }
     
